@@ -13,6 +13,15 @@ export interface ApiErrorBody {
   detail?: string | { msg: string; loc?: (string | number)[] }[];
 }
 
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  is_active: boolean;
+  is_verified: boolean;
+}
+
 /** Backend'den dönen hata mesajını okunabilir tek bir string'e indirger. */
 export function extractErrorMessage(body: unknown, fallback: string): string {
   const detail = (body as ApiErrorBody | undefined)?.detail;

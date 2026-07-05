@@ -8,6 +8,7 @@ import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import VerifyEmailScreen from "../screens/VerifyEmailScreen";
 import HomeScreen from "../screens/HomeScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
@@ -30,6 +31,7 @@ function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={HomeScreen} />
+      <AppStack.Screen name="Profile" component={ProfileScreen} />
     </AppStack.Navigator>
   );
 }

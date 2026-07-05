@@ -2,7 +2,7 @@
 
 **Diyanet fetva veritabanına dayanan RAG backend'i için React Native (Expo) istemcisi.**
 
-Kullanıcı e-posta ile kayıt olup hesabını doğruladıktan sonra giriş yapar, sorularını sorar ve backend'in ürettiği kaynaklı cevapları sohbet arayüzünde görür. Her cevaba like/dislike geri bildirimi verilebilir; dislike durumunda isteğe bağlı yorum eklenebilir.
+Kullanıcı e-posta ile kayıt olup hesabını doğruladıktan sonra giriş yapar, sorularını sorar ve backend'in ürettiği kaynaklı cevapları sohbet arayüzünde görür. Sorular otomatik olarak sohbetler halinde gruplanır; kullanıcı geçmiş sohbetlerini bir açılır menüden görüntüleyip devam ettirebilir, yeni bir sohbet başlatabilir. Kullanıcı ayrıca kendi profilini görüntüleyip adını güncelleyebilir. Her cevaba like/dislike geri bildirimi verilebilir; dislike durumunda isteğe bağlı yorum eklenebilir.
 
 ---
 
@@ -25,7 +25,9 @@ Kullanıcı e-posta ile kayıt olup hesabını doğruladıktan sonra giriş yapa
 
 - 🔐 **JWT tabanlı kimlik doğrulama** — kayıt, giriş, e-posta doğrulama (6 haneli kod)
 - 🔄 **Access + refresh token akışı** — refresh token `expo-secure-store` ile cihazda güvenli saklanır
+- 👤 **Profil sayfası** — e-posta (salt okunur) ve düzenlenebilir ad; uygulama açılışında ve girişten sonra kullanıcı bilgisi otomatik çekilir
 - 💬 **Sohbet arayüzü** — soru sor, kaynaklı cevap al
+- 🗂 **Sohbet geçmişi** — üst bardaki hamburger menüden geçmiş sohbetler listelenir, bir sohbete dokununca tüm geçmişi (soru, cevap, kaynaklar, feedback) geri yüklenir; "Yeni Sohbet" ile temiz bir sayfa açılır
 - 👍👎 **Like/Dislike geri bildirimi** — dislike'a özel yorum kutusu
 - 🎨 **Karanlık + altın (luxury) tema** — gece rengi zemin, altın vurgular, yıldızlı hero bölümü
 - 📋 **Panoya kopyalama** — `expo-clipboard` ile cevap/kaynak kopyalama
@@ -110,7 +112,9 @@ hocaya_sor_temp/
 ├── index.ts                  # Uygulama giriş noktası
 ├── assets/                   # İkon, splash, favicon görselleri
 └── src/
-    ├── api/                  # axios instance, endpoint çağrıları
+    ├── api/
+    │   ├── authApi.ts        # register/login/refresh/logout/verifyEmail + getMe/updateProfile
+    │   └── fatwaApi.ts       # ask/sendFeedback + listConversations/getConversationMessages
     ├── components/           # Paylaşılan UI bileşenleri
     │   ├── AuthScreenLayout.tsx
     │   ├── AuthHero.tsx
@@ -118,20 +122,24 @@ hocaya_sor_temp/
     │   ├── AuthButton.tsx
     │   └── Banner.tsx
     ├── context/
-    │   └── AuthContext.tsx   # login/register/verifyEmail/resendVerification, token yönetimi
+    │   └── AuthContext.tsx   # login/register/verifyEmail/resendVerification, token yönetimi,
+    │                         # kullanıcı bilgisi (user state) + updateName()
     ├── navigation/
-    │   └── types.ts          # AuthStackParamList vb. navigasyon tipleri
+    │   ├── types.ts          # AuthStackParamList, AppStackParamList (Home + Profile)
+    │   └── RootNavigator.tsx # signedIn/signedOut/loading durumuna göre stack seçimi
     ├── screens/
     │   ├── LoginScreen.tsx
     │   ├── RegisterScreen.tsx
     │   ├── VerifyEmailScreen.tsx
-    │   └── HomeScreen.tsx    # Sohbet arayüzü + feedback
+    │   ├── HomeScreen.tsx    # Sohbet arayüzü, sohbet geçmişi menüsü, feedback
+    │   └── ProfileScreen.tsx # E-posta (salt okunur) + düzenlenebilir ad, kaydet butonu
     ├── theme/
     │   ├── colors.ts         # Gece/altın renk paleti
     │   ├── stars.ts          # Hero'daki dekoratif yıldız dizisi
     │   └── index.ts          # Barrel export
     └── types/
-        └── auth.ts           # Auth tipleri, extractErrorMessage yardımcı fonksiyonu
+        ├── auth.ts           # Auth tipleri, extractErrorMessage yardımcı fonksiyonu
+        └── fatwa.ts          # AskResponse, FatwaSource, Conversation, ConversationMessage tipleri
 ```
 
 ---
@@ -139,8 +147,10 @@ hocaya_sor_temp/
 ## 🏗 Mimari Notlar
 
 - **Auth akışı:** `AuthContext`, backend'in access/refresh token modeline uyacak şekilde tasarlanmıştır. Access token kısa ömürlü olduğundan, süresi dolduğunda backend'in `/auth/refresh` endpoint'i kullanılarak sessizce yenilenmesi beklenir (axios interceptor önerilir, henüz doğrulanmadı).
+- **Kullanıcı bilgisi:** `AuthContext` artık sadece giriş durumunu (`status`) değil, kullanıcı objesini de (`user`: ad, e-posta) tutar. Uygulama açılışında token varsa `getMe()` ile profil otomatik çekilir — bu hem ekranı baştan doldurur hem de token'ın gerçekten geçerli olduğunu örtük olarak doğrular (401 dönerse `signedOut`'a düşülür). `login()` sonrasında da aynı şekilde profil çekilir.
 - **E-posta doğrulama:** Kayıt sonrası kullanıcı doğrudan `VerifyEmailScreen`'e yönlendirilir; 6 haneli kod kutuları tek bir gizli `TextInput` üzerinden yönetilir (native OTP davranışı taklit edilir).
 - **Doğrulanmamış hesapla giriş:** Backend `403 EMAIL_NOT_VERIFIED` döndüğünde `LoginScreen`, kullanıcıyı `VerifyEmailScreen`'e yönlendiren bir link gösterir.
+- **Sohbet geçmişi state yönetimi:** `HomeScreen`, aktif sohbeti `conversationId` state'inde tutar. İlk soru sorulduğunda bu `null`'dır; backend cevapla birlikte bir `conversation_id` döner ve bu id sonraki sorularda `fatwaApi.ask(question, conversationId)` ile tekrar gönderilir. "Yeni Sohbet" butonu hem mesaj listesini hem `conversationId`'yi sıfırlar. Hamburger menüdeki bir sohbete dokunulduğunda `getConversationMessages(id)` ile geçmiş çekilip ekrana yeniden yüklenir ve `conversationId` o sohbete güncellenir.
 - **Feedback:** `HomeScreen`'de her cevaba like/dislike verilebilir; `dislike` seçildiğinde backend'deki `comment` alanına karşılık gelen bir yorum kutusu açılır ve `/fatwa/feedback/{log_id}` endpoint'ine gönderilir.
 - **Refresh token güvenliği:** `expo-secure-store` ile cihazın güvenli depolama alanında (iOS Keychain / Android Keystore) tutulur; düz metin olarak AsyncStorage'a yazılmaz.
 
@@ -153,7 +163,8 @@ hocaya_sor_temp/
 | `LoginScreen` | E-posta/şifre ile giriş, doğrulanmamış hesap için yönlendirme linki |
 | `RegisterScreen` | Yeni hesap oluşturma (min. 8 karakter şifre kuralı) |
 | `VerifyEmailScreen` | 6 haneli kod girişi, yeniden gönderim (cooldown'lu) |
-| `HomeScreen` | Soru-cevap sohbet arayüzü, like/dislike + yorum |
+| `HomeScreen` | Soru-cevap sohbet arayüzü, sohbet geçmişi menüsü, like/dislike + yorum |
+| `ProfileScreen` | E-posta (salt okunur) görüntüleme, ad düzenleme ve kaydetme |
 
 ---
 
@@ -167,7 +178,7 @@ Auth ekranları (Login/Register/VerifyEmail) ortak bir görsel dilden gelir:
 - **`AuthButton`** — basılınca gölgesi kalkan 3D altın buton
 - **`Banner`** — hata (error) / bilgi (info) varyantlı uyarı kutusu
 
-`HomeScreen` yapısal olarak farklı olduğu için (sohbet arayüzü) bu layout bileşenlerini kullanmaz, yalnızca ortak `theme` renklerini paylaşır.
+`ProfileScreen`, bu bileşenlerden `FormInput` ve `AuthButton`'ı yeniden kullanır (ad girişi ve kaydet butonu için). `HomeScreen` yapısal olarak farklı olduğu için (sohbet arayüzü) bu layout bileşenlerini kullanmaz, yalnızca ortak `theme` renklerini paylaşır.
 
 ---
 
@@ -199,6 +210,10 @@ Auth ekranları (Login/Register/VerifyEmail) ortak bir görsel dilden gelir:
 ### Yeni bir tema rengi eklerken
 
 `src/theme/colors.ts`'e ekle, `index.ts` zaten barrel export yaptığı için ek bir işlem gerekmez.
+
+### Yeni bir route/ekran eklerken
+
+`navigation/types.ts`'teki ilgili `ParamList`'e (`AuthStackParamList` giriş öncesi, `AppStackParamList` giriş sonrası) yeni route'u ekle, ardından `navigation/RootNavigator.tsx`'teki ilgili `Navigator`'a `Screen` olarak kaydet.
 
 ### TypeScript hataları
 

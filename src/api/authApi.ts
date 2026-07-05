@@ -1,9 +1,9 @@
 import { apiClient } from "./client";
-import { TokenPair } from "../types/auth";
+import { TokenPair, UserProfile } from "../types/auth";
 
 export const authApi = {
-  async register(email: string, password: string): Promise<TokenPair> {
-    const { data } = await apiClient.post<TokenPair>("/auth/register", { email, password });
+  async register(name: string, email: string, password: string): Promise<TokenPair> {
+    const { data } = await apiClient.post<TokenPair>("/auth/register", { name, email, password });
     return data;
   },
   async login(email: string, password: string): Promise<TokenPair> {
@@ -22,5 +22,13 @@ export const authApi = {
   },
   async logout(refreshToken: string): Promise<void> {
     await apiClient.post("/auth/logout", { refresh_token: refreshToken });
+  },
+  async getMe(): Promise<UserProfile> {
+   const { data } = await apiClient.get("/auth/me");
+   return data;
+  },
+  async updateProfile(name: string): Promise<UserProfile> {
+    const { data } = await apiClient.patch<UserProfile>("/auth/me", { name });
+    return data;
   },
 };

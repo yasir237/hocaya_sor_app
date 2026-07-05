@@ -16,6 +16,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
 export default function RegisterScreen({ navigation }: Props) {
   const { register } = useAuth();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,13 +25,17 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const handleSubmit = async () => {
     setError(null);
+    if (name.trim().length < 2) {
+      setError("Lütfen adını gir.");
+      return;
+    }
     if (!email.trim() || password.length < 8) {
       setError("Geçerli bir e-posta gir ve şifre en az 8 karakter olsun.");
       return;
     }
     setLoading(true);
     try {
-      await register(email.trim(), password);
+      await register(name.trim(), email.trim(), password);
       navigation.navigate("VerifyEmail", { email: email.trim() });
     } catch (err) {
       const axiosErr = err as AxiosError;
@@ -50,6 +55,14 @@ export default function RegisterScreen({ navigation }: Props) {
     >
       <Text style={styles.cardTitle}>Hesap oluştur</Text>
       <Text style={styles.cardSubtitle}>Sorularına güvenilir cevaplar için bir hesap aç</Text>
+
+      <FormInput
+        icon="person-outline"
+        placeholder="Ad Soyad"
+        autoCapitalize="words"
+        value={name}
+        onChangeText={setName}
+      />
 
       <FormInput
         icon="mail-outline"
